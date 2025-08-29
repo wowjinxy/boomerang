@@ -14,6 +14,7 @@
 #include "boomerang/ssl/exp/Const.h"
 #include "boomerang/db/Global.h"
 #include "boomerang/db/Prog.h"
+#include "boomerang/db/binary/BinarySymbolTable.h"
 #include "boomerang/ssl/type/CompoundType.h"
 #include "boomerang/ssl/type/CharType.h"
 #include "boomerang/ssl/type/ArrayType.h"
@@ -41,9 +42,17 @@ void GlobalTest::testContainsAddress()
 void GlobalTest::testGetInitialValue()
 {
     QVERIFY(m_project.loadBinaryFile(SAMPLE("x86/fbranch")));
-    Global *bssGlob = m_project.getProg()->createGlobal(Address(0x080496DC));
+    Prog *prog = m_project.getProg();
+    Global *bssGlob = prog->createGlobal(Address(0x080496DC));
     QVERIFY(bssGlob != nullptr);
     QVERIFY(bssGlob->getInitialValue() == nullptr);
+
+    // Provide a symbol and type information so BSS data can be interpreted
+    prog->getBinaryFile()->getSymbols()->createSymbol(Address(0x080496DC), "bssSym");
+    bssGlob->meetType(IntegerType::get(32));
+    SharedExp init = bssGlob->getInitialValue();
+    QVERIFY(init != nullptr);
+    QCOMPARE(init->toString(), QString("0"));
 }
 
 
