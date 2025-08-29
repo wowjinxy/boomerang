@@ -143,6 +143,16 @@ bool BinaryImage::readNativeAddr8(Address addr, Address &value) const
 }
 
 
+bool BinaryImage::readNativeAddr(Address addr, Address &value) const
+{
+    switch (Address::getSourceBits()) {
+    case 64: return readNativeAddr8(addr, value);
+    case 32: return readNativeAddr4(addr, value);
+    default: return false;
+    }
+}
+
+
 bool BinaryImage::readNativeFloat4(Address addr, float &value) const
 {
     const BinarySection *sect = getSectionByAddr(addr);

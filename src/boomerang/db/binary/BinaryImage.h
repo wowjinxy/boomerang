@@ -111,6 +111,7 @@ public:
 
     bool readNativeAddr4(Address addr, Address &value) const;
     bool readNativeAddr8(Address addr, Address &value) const;
+    bool readNativeAddr(Address addr, Address &value) const;
 
     bool readNativeFloat4(Address addr, float &value) const;
     bool readNativeFloat8(Address addr, double &value) const;
