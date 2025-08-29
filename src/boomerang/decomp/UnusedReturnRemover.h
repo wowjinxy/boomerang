@@ -84,6 +84,9 @@ private:
     /// \returns true if any change
     bool removeReturnsToMatchSignature(UserProc *proc);
 
+    /// Check if \p start eventually reaches \p target in the call graph.
+    bool doesRecurseTo(UserProc *start, UserProc *target) const;
+
 private:
     Prog *m_prog;
     ProcSet m_removeRetSet; ///< UserProcs that need their returns updated

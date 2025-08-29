@@ -22,6 +22,8 @@
 #include "boomerang/util/log/Log.h"
 #include "boomerang/visitor/expmodifier/ImplicitConverter.h"
 
+#include <vector>
+
 
 bool compareUserProc(const UserProc *lhs, const UserProc *rhs)
 {
@@ -119,10 +121,10 @@ bool UnusedReturnRemover::removeUnusedParamsAndReturns(UserProc *proc)
     }
     else {
         for (std::shared_ptr<CallStatement> cc : proc->getCallers()) {
-            // Prevent function from blocking its own removals
-            // TODO This only handles self-recursion. More analysis and testing is necessary
-            // for mutual recursion. (-> cc->getProc()->doesRecurseTo(proc))
-            if (cc->getProc() == proc) {
+            // Prevent functions that participate in a recursion cycle with this
+            // procedure from blocking the removal of returns. We skip callers
+            // that can be reached from this procedure.
+            if (doesRecurseTo(proc, cc->getProc())) {
                 continue;
             }
 
@@ -330,4 +332,39 @@ bool UnusedReturnRemover::removeReturnsToMatchSignature(UserProc *proc)
     }
 
     return removedRets;
+}
+
+
+bool UnusedReturnRemover::doesRecurseTo(UserProc *start, UserProc *target) const
+{
+    if (!start || !target) {
+        return false;
+    }
+
+    std::set<UserProc *> visited;
+    std::vector<UserProc *> stack;
+    stack.push_back(start);
+    visited.insert(start);
+
+    while (!stack.empty()) {
+        UserProc *cur = stack.back();
+        stack.pop_back();
+
+        if (cur == target) {
+            return true;
+        }
+
+        for (Function *callee : cur->getCallees()) {
+            UserProc *up = dynamic_cast<UserProc *>(callee);
+
+            if (!up || up->isLib() || visited.find(up) != visited.end()) {
+                continue;
+            }
+
+            visited.insert(up);
+            stack.push_back(up);
+        }
+    }
+
+    return false;
 }
