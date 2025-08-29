@@ -38,6 +38,11 @@ namespace dbghelp
 #include "boomerang/db/binary/BinarySection.h"
 #include "boomerang/db/binary/BinarySymbol.h"
 #include "boomerang/db/binary/BinarySymbolTable.h"
+#include "boomerang/db/proc/Proc.h"
+#include "boomerang/db/signature/Signature.h"
+#include "boomerang/frontend/SigEnum.h"
+#include "boomerang/ssl/exp/Location.h"
+#include "boomerang/util/OStream.h"
 #include "boomerang/util/Util.h"
 #include "boomerang/util/log/Log.h"
 
@@ -45,6 +50,12 @@ namespace dbghelp
 #include <QString>
 
 #include <stdexcept>
+
+
+#if defined(_WIN32) && !defined(__MINGW32__)
+BOOL CALLBACK addSymbol(dbghelp::PSYMBOL_INFO symInfo, ULONG SymbolSize, PVOID UserContext);
+SharedType typeFromDebugInfo(int index, DWORD64 ModBase);
+#endif
 
 
 extern "C"
@@ -1182,6 +1193,66 @@ Address Win32BinaryLoader::getJumpTarget(Address addr) const
 
     // Note: for backwards jumps, this wraps around since we have unsigned integers
     return Address(addr + 5 + disp);
+}
+
+bool Win32BinaryLoader::fetchDebugInfo(Function *function)
+{
+#if !defined(_WIN32) || defined(__MINGW32__)
+    Q_UNUSED(function);
+    LOG_VERBOSE("Adding debug information for Windows programs is only supported on Windows!");
+    return false;
+#else
+    if (!function) {
+        return false;
+    }
+
+    HANDLE hProcess           = GetCurrentProcess();
+    dbghelp::SYMBOL_INFO *sym = (dbghelp::SYMBOL_INFO *)malloc(sizeof(dbghelp::SYMBOL_INFO) + 1000);
+    sym->SizeOfStruct         = sizeof(*sym);
+    sym->MaxNameLen           = 1000;
+    sym->Name[0]              = 0;
+    BOOL got = dbghelp::SymFromAddr(hProcess, function->getEntryAddress().value(), 0, sym);
+    DWORD retType;
+
+    if (got && *sym->Name &&
+        dbghelp::SymGetTypeInfo(hProcess, sym->ModBase, sym->TypeIndex, dbghelp::TI_GET_TYPE,
+                                &retType)) {
+        DWORD d;
+        got = dbghelp::SymGetTypeInfo(hProcess, sym->ModBase, sym->TypeIndex,
+                                      dbghelp::TI_GET_CALLING_CONVENTION, &d);
+
+        if (got) {
+            LOG_VERBOSE("calling convention: %1", (int)d);
+        }
+        else {
+            function->setSignature(
+                Signature::instantiate(Machine::X86, CallConv::C, function->getName()));
+        }
+
+        SharedType rtype = typeFromDebugInfo(retType, sym->ModBase);
+
+        if (!rtype->isVoid()) {
+            function->getSignature()->addReturn(rtype, Location::regOf(REG_X86_EAX));
+        }
+
+        dbghelp::IMAGEHLP_STACK_FRAME stack;
+        stack.InstructionOffset = function->getEntryAddress().value();
+        dbghelp::SymSetContext(hProcess, &stack, 0);
+        dbghelp::SymEnumSymbols(hProcess, 0, nullptr, addSymbol, function);
+
+        QString str;
+        OStream os(&str);
+        function->getSignature()->print(os);
+
+        LOG_VERBOSE("Retrieved Win32 debugging information:");
+        LOG_VERBOSE("%1", str);
+        free(sym);
+        return true;
+    }
+
+    free(sym);
+    return false;
+#endif
 }
 
 

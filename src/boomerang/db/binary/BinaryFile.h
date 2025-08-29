@@ -68,6 +68,9 @@ public:
     BinarySymbolTable *getSymbols();
     const BinarySymbolTable *getSymbols() const;
 
+    IFileLoader *getLoader() { return m_loader; }
+    const IFileLoader *getLoader() const { return m_loader; }
+
 public:
     /// \returns the file format of the binary file.
     LoadFmt getFormat() const;

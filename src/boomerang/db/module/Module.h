@@ -113,10 +113,6 @@ public:
     void updateLibrarySignatures();
 
 private:
-    /// Retrieve Win32 PDB debug information for the function \p function
-    void addWin32DbgInfo(Function *function);
-
-private:
     FunctionList m_functionList; ///< The Functions in the module
     FunctionMap m_labelsToProcs;
 

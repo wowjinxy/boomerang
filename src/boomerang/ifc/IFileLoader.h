@@ -17,6 +17,7 @@
 class Project;
 
 class QIODevice;
+class Function;
 
 
 /**
@@ -89,6 +90,14 @@ public:
     {
         Q_UNUSED(addr);
         return Address::INVALID;
+    }
+
+    /// Populate debug information for \p function if available.
+    /// \returns true if any information was added.
+    virtual bool fetchDebugInfo(Function *function)
+    {
+        Q_UNUSED(function);
+        return false;
     }
     virtual bool hasDebugInfo() const { return false; }
 };
