@@ -71,7 +71,7 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
 
     if (type->resolvesToPointer()) {
         Address initAddr = Address::INVALID;
-        if (!image->readNativeAddr4(uaddr, initAddr) || initAddr.isZero()) {
+        if (!image->readNativeAddr(uaddr, initAddr) || initAddr.isZero()) {
             return Const::get(0);
         }
 
