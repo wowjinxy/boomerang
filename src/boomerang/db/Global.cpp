@@ -10,6 +10,7 @@
 #include "Global.h"
 
 #include "boomerang/db/Prog.h"
+#include "boomerang/db/binary/BinaryFile.h"
 #include "boomerang/db/binary/BinaryImage.h"
 #include "boomerang/db/binary/BinarySection.h"
 #include "boomerang/db/binary/BinarySymbol.h"
@@ -48,12 +49,18 @@ SharedExp Global::getInitialValue() const
 {
     const BinarySection *sect = m_prog->getSectionByAddr(m_addr);
 
-    if (!sect || sect->isAddressBss(m_addr)) {
-        // This global is in the BSS, so it can't be initialised
-        // NOTE: this is not actually correct. at least for typing, BSS data can have a type
-        // assigned
-        // TODO: see what happens when we skip Bss check here
+    if (!sect) {
         return nullptr;
+    }
+
+    if (sect->isAddressBss(m_addr)) {
+        const BinaryFile *bf       = m_prog->getBinaryFile();
+        const BinarySymbol *symbol = bf->getSymbols()->findSymbolByAddress(m_addr);
+
+        // Only attempt to read BSS data if debug info or a symbol provides type information
+        if (!bf->hasDebugInfo() && symbol == nullptr) {
+            return nullptr;
+        }
     }
 
     return readInitialValue(m_addr, m_type);
@@ -69,7 +76,13 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
         return nullptr;
     }
 
+    const bool isBss = sect->isAddressBss(uaddr);
+
     if (type->resolvesToPointer()) {
+        if (isBss) {
+            return Const::get(0);
+        }
+
         Address initAddr = Address::INVALID;
         if (!image->readNativeAddr(uaddr, initAddr) || initAddr.isZero()) {
             return Const::get(0);
@@ -111,6 +124,10 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
     }
 
     if (type->resolvesToArray() && type->as<ArrayType>()->getBaseType()->resolvesToChar()) {
+        if (isBss) {
+            return Const::get("");
+        }
+
         const char *str = m_prog->getStringConstant(uaddr, true);
 
         if (str) {
@@ -169,7 +186,7 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
         switch (size) {
         case 8: {
             Byte value = 0;
-            if (!image->readNative1(uaddr, value)) {
+            if (!isBss && !image->readNative1(uaddr, value)) {
                 return nullptr;
             }
 
@@ -177,7 +194,7 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
         }
         case 16: {
             SWord value = 0;
-            if (!image->readNative2(uaddr, value)) {
+            if (!isBss && !image->readNative2(uaddr, value)) {
                 return nullptr;
             }
 
@@ -185,7 +202,7 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
         }
         case 32: {
             DWord value = 0;
-            if (!image->readNative4(uaddr, value)) {
+            if (!isBss && !image->readNative4(uaddr, value)) {
                 return nullptr;
             }
 
@@ -193,7 +210,7 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
         }
         case 64: {
             QWord value = 0;
-            if (!image->readNative8(uaddr, value)) {
+            if (!isBss && !image->readNative8(uaddr, value)) {
                 return nullptr;
             }
 
@@ -205,12 +222,12 @@ SharedExp Global::readInitialValue(Address uaddr, SharedType type) const
     if (type->resolvesToFloat()) {
         switch (type->as<FloatType>()->getSize()) {
         case 32: {
-            float val;
-            return image->readNativeFloat4(uaddr, val) ? Const::get(val) : nullptr;
+            float val = 0.0f;
+            return (isBss || image->readNativeFloat4(uaddr, val)) ? Const::get(val) : nullptr;
         }
         case 64: {
-            double val;
-            return image->readNativeFloat8(uaddr, val) ? Const::get(val) : nullptr;
+            double val = 0.0;
+            return (isBss || image->readNativeFloat8(uaddr, val)) ? Const::get(val) : nullptr;
         }
         }
     }
