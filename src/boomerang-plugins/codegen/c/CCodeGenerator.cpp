@@ -22,6 +22,7 @@
 #include "boomerang/ssl/exp/Const.h"
 #include "boomerang/ssl/exp/Location.h"
 #include "boomerang/ssl/exp/RefExp.h"
+#include "boomerang/ssl/exp/Exp.h"
 #include "boomerang/ssl/exp/Ternary.h"
 #include "boomerang/ssl/exp/TypedExp.h"
 #include "boomerang/ssl/statements/BoolAssign.h"
@@ -38,6 +39,22 @@
 
 #include <stdexcept>
 
+
+static QString selectFloatHelper(const QString &base, const SharedExp &arg)
+{
+    SharedType ty = arg ? arg->ascendType() : nullptr;
+    int bits      = ty ? static_cast<int>(ty->getSize()) : 0;
+
+    if (bits > 0 && bits <= 32) {
+        return base + QLatin1Char('f');
+    }
+    else if (bits > 64) {
+        return base + QLatin1Char('l');
+    }
+    else {
+        return base;
+    }
+}
 
 // index of the "then" branch of conditional jumps
 #define BTHEN 0
@@ -71,29 +88,27 @@ void CCodeGenerator::generateCode(const Prog *prog, Module *cluster, UserProc *p
         appendLine("");
     }
 
-    if (generate_all) {
-        if (proc == nullptr) {
-            const bool global = !prog->getGlobals().empty();
-
-            for (auto &elem : prog->getGlobals()) {
-                // Check for an initial value
-                SharedExp e = elem->getInitialValue();
-                // if (e) {
-                addGlobal(elem->getName(), elem->getType(), e);
-            }
-
-            if (global) {
-                print(prog->getRootModule());
-            }
+    if (generate_all && proc == nullptr) {
+        for (auto &elem : prog->getGlobals()) {
+            // Check for an initial value
+            SharedExp e = elem->getInitialValue();
+            addGlobal(elem->getName(), elem->getType(), e);
         }
-
-        appendLine(""); // Separate prototype(s) from first proc
-        print(prog->getRootModule());
     }
+
+    appendLine(""); // Separate prototype(s) from first proc
+    QStringList prologueLines = m_lines;
+    m_lines.clear();
 
     for (const auto &module : prog->getModuleList()) {
         if (!generate_all && (module.get() != cluster)) {
             continue;
+        }
+
+        m_needMathHeader = false;
+
+        if (module.get() == prog->getRootModule()) {
+            m_lines = prologueLines;
         }
 
         for (Function *func : *module) {
@@ -112,8 +127,9 @@ void CCodeGenerator::generateCode(const Prog *prog, Module *cluster, UserProc *p
             }
 
             generateCode(_proc);
-            print(module.get());
         }
+
+        print(module.get());
     }
 }
 
@@ -1565,20 +1581,22 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
     case opFround: {
         const Ternary &ternaryExp = *exp->access<Ternary>();
 
-        // Note: we need roundf or roundl depending on size of operands
-        str << "round("; // Note: math.h required
+        QString helper = selectFloatHelper("round", ternaryExp.getSubExp3());
+        str << helper << "(";
         appendExp(str, ternaryExp.getSubExp3(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
     case opFtrunc: {
         const Unary &unaryExp = *exp->access<Unary>();
 
-        // Note: we need truncf or truncl depending on size of operands
-        str << "trunc("; // Note: math.h required
+        QString helper = selectFloatHelper("trunc", unaryExp.getSubExp1());
+        str << helper << "(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1588,6 +1606,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "fabs(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1868,6 +1887,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << ", ";
         appendExp(str, binaryExp.getSubExp2(), OpPrec::Comma);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1877,6 +1897,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "log2(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1886,6 +1907,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "log10(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1895,6 +1917,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "sin(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1904,6 +1927,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "cos(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1913,6 +1937,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "sqrt(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1922,6 +1947,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "tan(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -1931,6 +1957,7 @@ void CCodeGenerator::appendExp(OStream &str, const SharedConstExp &exp, OpPrec c
         str << "atan(";
         appendExp(str, unaryExp.getSubExp1(), OpPrec::None);
         str << ")";
+        m_needMathHeader = true;
         break;
     }
 
@@ -2669,6 +2696,10 @@ void CCodeGenerator::writeFragment(const IRFragment *frag)
 
 void CCodeGenerator::print(const Module *module)
 {
+    if (m_needMathHeader) {
+        m_lines.prepend("#include <math.h>");
+        m_needMathHeader = false;
+    }
     m_writer.writeCode(module, m_lines);
     m_lines.clear();
 }

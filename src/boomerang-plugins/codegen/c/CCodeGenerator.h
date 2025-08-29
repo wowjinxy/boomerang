@@ -342,4 +342,5 @@ private:
 
     CodeWriter m_writer;
     QStringList m_lines; ///< The generated code.
+    bool m_needMathHeader = false; ///< True if <math.h> is required for current module
 };
