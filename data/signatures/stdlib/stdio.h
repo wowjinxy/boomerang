@@ -48,10 +48,8 @@ int puts(const char *str);
 int ungetc(int character, FILE *stream);
 
 // Direct input/output
-// FIXME the true type for buf is void *, but changing to the correct type breaks
-// regression tests.
-size_t fread(char *buf, size_t size, size_t count, FILE *stream);
-size_t fwrite(const char *buf, size_t size, size_t count, FILE *stream);
+size_t fread(void *buf, size_t size, size_t count, FILE *stream);
+size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream);
 
 // file positioning
 int fgetpos(FILE *stream, fpos_t *pos);
