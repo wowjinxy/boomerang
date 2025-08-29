@@ -165,16 +165,21 @@ SharedType typeFromDebugInfo(int index, DWORD64 ModBase)
 }
 
 
+/// Translate a dbghelp register index to Boomerang's internal register number.
+///
+/// \param r dbghelp register index
+/// \returns the corresponding internal register number or -1 if the index is
+///          unknown. Callers must check for the sentinel value before use.
 int debugRegister(int r)
 {
     switch (r) {
     case 2: return REG_X86_EDX;
     case 4: return REG_X86_ECX;
     case 8: return REG_X86_EBP;
+    default: break;
     }
 
-    assert(false);
-    return -1;
+    return -1; // unknown register index
 }
 
 
@@ -194,8 +199,16 @@ BOOL CALLBACK addSymbol(dbghelp::PSYMBOL_INFO symInfo, ULONG /*SymbolSize*/, PVO
                 ty);
         }
         else if (symInfo->Flags & SYMFLAG_REGISTER) {
-            proc->getSignature()->addParameter(
-                symInfo->Name, Location::regOf(debugRegister(symInfo->Register)), ty);
+            const int reg = debugRegister(symInfo->Register);
+
+            if (reg != -1) {
+                proc->getSignature()->addParameter(
+                    symInfo->Name, Location::regOf(reg), ty);
+            }
+            else {
+                LOG_WARN("Unknown register index %1 for parameter '%2'", symInfo->Register,
+                         symInfo->Name);
+            }
         }
     }
     else if ((symInfo->Flags & SYMFLAG_LOCAL) && !proc->isLib()) {
