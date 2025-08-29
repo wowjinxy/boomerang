@@ -436,12 +436,17 @@ bool DefaultFrontEnd::disassembleProc(UserProc *proc, Address addr)
                     // Assign the proc to the call
                     Function *p = m_program->getOrCreateLibraryProc(name);
 
+                    QString oldName;
                     if (call->getDestProc()) {
                         // prevent unnecessary __imp procs
-                        m_program->removeFunction(call->getDestProc()->getName());
+                        oldName = call->getDestProc()->getName();
                     }
 
                     call->setDestProc(p);
+
+                    if (!oldName.isEmpty()) {
+                        m_program->removeFunction(oldName);
+                    }
                     call->setIsComputed(false);
                     call->setDest(Location::memOf(Const::get(functionAddr)));
 
@@ -968,12 +973,17 @@ bool DefaultFrontEnd::liftBB(BasicBlock *currentBB, UserProc *proc,
                 // Assign the proc to the call
                 Function *p = proc->getProg()->getOrCreateLibraryProc(name);
 
+                QString oldName;
                 if (call->getDestProc()) {
                     // prevent unnecessary __imp procs
-                    m_program->removeFunction(call->getDestProc()->getName());
+                    oldName = call->getDestProc()->getName();
                 }
 
                 call->setDestProc(p);
+
+                if (!oldName.isEmpty()) {
+                    m_program->removeFunction(oldName);
+                }
                 call->setIsComputed(false);
                 call->setDest(Location::memOf(Const::get(functionAddr)));
             }

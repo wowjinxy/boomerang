@@ -263,14 +263,19 @@ bool Prog::removeFunction(const QString &name)
 {
     Function *function = getFunctionByName(name);
 
-    if (function) {
-        function->removeFromModule();
-        m_project->alertFunctionRemoved(function);
-        // FIXME: this function removes the function from module, but it leaks it
-        return true;
+    if (!function) {
+        return false;
     }
 
-    return false;
+    function->removeFromModule();
+    m_project->alertFunctionRemoved(function);
+
+    if (!function->isLib()) {
+        m_entryProcs.remove(static_cast<UserProc *>(function));
+    }
+
+    delete function;
+    return true;
 }
 
 
