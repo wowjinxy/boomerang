@@ -22,3 +22,7 @@ BOOMERANG_ADD_CODEGEN(
         c/ControlFlowAnalyzer.cpp
         c/ControlFlowAnalyzer.h
 )
+
+if (NOT MSVC)
+    target_link_libraries(boomerang-CCodegen PRIVATE m)
+endif()
