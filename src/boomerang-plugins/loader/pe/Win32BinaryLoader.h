@@ -15,6 +15,8 @@
 
 #include <string>
 
+class Function;
+
 /**
  * This file contains the definition of the Win32BinaryLoader class.
  *
@@ -186,6 +188,9 @@ public:
 public:
     /// \copydoc IFileLoader::getJumpTarget
     Address getJumpTarget(Address addr) const override;
+
+    /// \copydoc IFileLoader::fetchDebugInfo
+    bool fetchDebugInfo(Function *function) override;
 
     /// \copydoc IFileLoader::hasDebugInfo
     bool hasDebugInfo() const override { return m_hasDebugInfo; }

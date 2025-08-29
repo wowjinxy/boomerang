@@ -89,7 +89,7 @@ Address BinaryFile::getJumpTarget(Address addr) const
 
 bool BinaryFile::hasDebugInfo() const
 {
-    return false;
+    return m_loader ? m_loader->hasDebugInfo() : false;
 }
 
 
