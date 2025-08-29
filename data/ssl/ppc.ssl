@@ -188,6 +188,13 @@ SETFLAGS0(rd) {
     *1* %CR0@[3:3] := [rd < 0?1:0]
 };
 
+SETFLAGS1(rd) {
+    *1* %CR1@[0:0] := 0                 # Note: these are non IBM bit numbers; LT is most significant bit (PPC bit 0)
+    *1* %CR1@[1:1] := [rd = 0?1:0]
+    *1* %CR1@[2:2] := [rd > 0?1:0]
+    *1* %CR1@[3:3] := [rd < 0?1:0]
+};
+
 
 
 SUBFLAGSNL(op1, op2, crfd) {
@@ -534,9 +541,9 @@ INSTRUCTION "FCTIWZ"          (fd, fb)          { *64* fd := zfill(32, 64, ftoi(
 INSTRUCTION "FCTIWZq"         (fd, fb)          { *64* fd := zfill(32, 64, ftoi(64, 32, fb)) };
 
 INSTRUCTION "FABS"            (fd, fs)          { *64* fd := fabs(fs) };
-INSTRUCTION "FABSq"           (fd, fs)          { *64* fd := fabs(fs) }; # TODO: Update flags
+INSTRUCTION "FABSq"           (fd, fs)          { *64* fd := fabs(fs)              SETFLAGS1(fd) };
 INSTRUCTION "FNABS"           (fd, fs)          { *64* fd := 0.0 -f fabs(fs) };
-INSTRUCTION "FNABSq"          (fd, fs)          { *64* fd := 0.0 -f fabs(fs) }; # TODO: Update flags
+INSTRUCTION "FNABSq"          (fd, fs)          { *64* fd := 0.0 -f fabs(fs)     SETFLAGS1(fd) };
 
 INSTRUCTION "FADD"            (fd, fa, fb)      {  *64* fd := fa +f fb };
 INSTRUCTION "FADDq"           (fd, fa, fb)      { *64* fd := fa +f fb };        # Note: floating point flags not implemented yet
@@ -559,14 +566,14 @@ INSTRUCTION "FDIVS"           (fd, fa, fb)      { *64* fd := fa /f fb };        
 INSTRUCTION "FDIVSq"          (fd, fa, fb)      { *64* fd := fa /f fb };        # Yet result is in 64-bit format
 
 INSTRUCTION "FMADD"           (ft, fa, fc, fb)  { *64* ft := (fa *f fc) +f fb };
-INSTRUCTION "FMADDq"          (ft, fa, fc, fb)  { *64* ft := (fa *f fc) +f fb }; # TODO: Update flags
+INSTRUCTION "FMADDq"          (ft, fa, fc, fb)  { *64* ft := (fa *f fc) +f fb     SETFLAGS1(ft) };
 INSTRUCTION "FMADDS"          (ft, fa, fc, fb)  { *64* ft := (fa *f fc) +f fb };
-INSTRUCTION "FMADDSq"         (ft, fa, fc, fb)  { *64* ft := (fa *f fc) +f fb }; # TODO: Update flags
+INSTRUCTION "FMADDSq"         (ft, fa, fc, fb)  { *64* ft := (fa *f fc) +f fb     SETFLAGS1(ft) };
 
 INSTRUCTION "FMSUB"           (ft, fa, fc, fb)  { *64* ft := (fa *f fc) -f fb };
-INSTRUCTION "FMSUBq"          (ft, fa, fc, fb)  { *64* ft := (fa *f fc) -f fb }; # TODO: Update flags
+INSTRUCTION "FMSUBq"          (ft, fa, fc, fb)  { *64* ft := (fa *f fc) -f fb     SETFLAGS1(ft) };
 INSTRUCTION "FMSUBS"          (ft, fa, fc, fb)  { *64* ft := (fa *f fc) -f fb };
-INSTRUCTION "FMSUBSq"         (ft, fa, fc, fb)  { *64* ft := (fa *f fc) -f fb }; # TODO: Update flags
+INSTRUCTION "FMSUBSq"         (ft, fa, fc, fb)  { *64* ft := (fa *f fc) -f fb     SETFLAGS1(ft) };
 
 INSTRUCTION "FNMADD"          (ft, fa, fc, fb)  { *64* ft := 0.0 -f ((fa *f fc) +f fb) };
 INSTRUCTION "FNMADDq"         (ft, fa, fc, fb)  { *64* ft := 0.0 -f ((fa *f fc) +f fb) };
