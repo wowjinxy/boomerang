@@ -12,6 +12,7 @@
 
 #include "boomerang/db/proc/UserProc.h"
 #include "boomerang/db/binary/BinarySection.h"
+#include "boomerang/util/Types.h"
 
 #include <QByteArray>
 
@@ -50,6 +51,26 @@ void BinarySectionTest::testResize()
     QCOMPARE(section.getSize(), 0x0800);
     section.resize(0x1000);
     QCOMPARE(section.getSize(), 0x1000);
+}
+
+
+void BinarySectionTest::testResizeRelocate()
+{
+    char sectionData[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    BinarySection section(Address(0x2000), sizeof(sectionData), "testSection");
+    section.setHostAddr(HostAddress(sectionData));
+    section.addDefinedArea(Address(0x2000), Address(0x2000) + sizeof(sectionData));
+
+    HostAddress oldHost = section.getHostAddr();
+    section.resize(16);
+
+    QCOMPARE(section.getSize(), 16); // resized
+    QVERIFY(section.getHostAddr() != HostAddress::INVALID);
+    QVERIFY(section.getHostAddr() != oldHost); // relocated
+
+    const Byte *bytes = reinterpret_cast<const Byte *>(section.getHostAddr().value());
+    QCOMPARE(bytes[0], static_cast<Byte>(0));
+    QCOMPARE(bytes[7], static_cast<Byte>(7));
 }
 
 

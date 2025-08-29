@@ -23,5 +23,7 @@ private slots:
     void testResize();
     void testAddDefinedArea();
 
+    void testResizeRelocate();
+
     void testAttributes();
 };

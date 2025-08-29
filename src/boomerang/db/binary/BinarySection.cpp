@@ -14,6 +14,9 @@
 #include "boomerang/util/Util.h"
 #include "boomerang/util/log/Log.h"
 
+#include <algorithm>
+#include <cstring>
+
 
 class BinarySectionImpl
 {
@@ -95,16 +98,63 @@ bool BinarySection::anyDefinedValues() const
 
 void BinarySection::resize(uint32_t sz)
 {
-    LOG_VERBOSE("Function not fully implemented yet");
-    m_size = sz;
+    if (sz == m_size) {
+        return; // nothing to do
+    }
 
-    //    assert(false && "This function is not implmented yet");
-    //    if(sz!=m_Size) {
-    //        const BinarySection *sect =
-    //        Boomerang::get()->getImage()->getSectionByAddr(uNativeAddr+sz); if(sect==nullptr ||
-    //        sect==this ) {
-    //        }
-    //    }
+    const Address newEnd = m_nativeAddr + sz;
+    if (sz > 0 && newEnd < m_nativeAddr) {
+        LOG_ERROR("Cannot resize section '%1' to size %2: address overflow", m_sectionName, sz);
+        return;
+    }
+
+    // relocating existing host data when expanding
+    if (m_hostAddr != HostAddress::INVALID && sz > m_size) {
+        Byte *newData = new (std::nothrow) Byte[sz];
+        if (newData == nullptr) {
+            LOG_ERROR("Cannot resize section '%1' to size %2: allocation failed", m_sectionName,
+                      sz);
+            return;
+        }
+
+        std::memcpy(newData, reinterpret_cast<const void *>(m_hostAddr.value()), m_size);
+        m_hostAddr = HostAddress(newData);
+    }
+
+    if (sz < m_size) {
+        // Truncate defined value ranges and attributes beyond the new end
+        IntervalSet<Address> newDefined;
+        for (const auto &ival : m_impl->m_hasDefinedValue) {
+            Address low  = ival.lower();
+            Address high = ival.upper();
+            if (low >= newEnd) {
+                continue;
+            }
+            if (high > newEnd) {
+                high = newEnd;
+            }
+            newDefined.insert(low, high);
+        }
+        m_impl->m_hasDefinedValue = std::move(newDefined);
+
+        for (auto &attrPair : m_impl->m_attributeMap) {
+            IntervalSet<Address> newSet;
+            for (const auto &ival : attrPair.second) {
+                Address low  = ival.lower();
+                Address high = ival.upper();
+                if (low >= newEnd) {
+                    continue;
+                }
+                if (high > newEnd) {
+                    high = newEnd;
+                }
+                newSet.insert(low, high);
+            }
+            attrPair.second = std::move(newSet);
+        }
+    }
+
+    m_size = sz;
 }
 
 
